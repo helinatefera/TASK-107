@@ -1,0 +1,6 @@
+DROP TABLE IF EXISTS carriers;
+DROP TABLE IF EXISTS suppliers;
+DROP TABLE IF EXISTS items;
+DROP TABLE IF EXISTS unit_conversions;
+DROP TABLE IF EXISTS units_of_measure;
+DROP TABLE IF EXISTS categories;
