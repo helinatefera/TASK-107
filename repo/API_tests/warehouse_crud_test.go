@@ -83,8 +83,39 @@ func TestAdminWarehouseCRUD(t *testing.T) {
 	if len(bins) < 1 {
 		t.Fatal("expected at least 1 bin")
 	}
+	binID := bins[0].(map[string]interface{})["id"].(string)
 
-	// 9. Delete warehouse
+	// 9. Update bin (PUT /api/v1/bins/:id)
+	resp = doRequest(t, "PUT", "/api/v1/bins/"+binID, map[string]interface{}{
+		"bin_code": "BIN-002",
+		"capacity": 50,
+	}, adminToken)
+	binUpdate := parseJSON(t, resp)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200 on PUT bin, got %d: %v", resp.StatusCode, binUpdate)
+	}
+	if binUpdate["bin_code"] != "BIN-002" {
+		t.Fatalf("expected bin_code BIN-002, got %v", binUpdate["bin_code"])
+	}
+
+	// 10. Delete bin (DELETE /api/v1/bins/:id)
+	resp = doRequest(t, "DELETE", "/api/v1/bins/"+binID, nil, adminToken)
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusNoContent {
+		t.Fatalf("expected 204 on delete bin, got %d", resp.StatusCode)
+	}
+
+	// Confirm bin is gone
+	resp = doRequest(t, "GET", "/api/v1/zones/"+zoneID+"/bins", nil, adminToken)
+	bins = parseJSONArray(t, resp)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200 on list bins after delete, got %d", resp.StatusCode)
+	}
+	if len(bins) != 0 {
+		t.Fatalf("expected 0 bins after delete, got %d", len(bins))
+	}
+
+	// 11. Delete warehouse
 	resp = doRequest(t, "DELETE", "/api/v1/warehouses/"+whID, nil, adminToken)
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusNoContent {

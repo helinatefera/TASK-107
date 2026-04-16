@@ -23,6 +23,8 @@ services:
       PORT: "8080"
       DATABASE_URL: "postgres://chargeops:chargeops@postgres:5432/chargeops?sslmode=disable"
       MIGRATIONS_DIR: "/migrations"
+      SEED_ADMIN_EMAIL: "admin@demo.com"
+      SEED_ADMIN_PASSWORD: "AdminPass123!"
       DB_MAX_OPEN_CONNS: "25"
       DB_MAX_IDLE_CONNS: "10"
     depends_on:

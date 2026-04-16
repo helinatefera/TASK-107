@@ -81,4 +81,18 @@ func TestAdminStationDeviceCRUD(t *testing.T) {
 	if resp.StatusCode != http.StatusNoContent {
 		t.Fatalf("expected 204 on delete device, got %d", resp.StatusCode)
 	}
+
+	// 9. Delete station (DELETE /api/v1/stations/:id)
+	resp = doRequest(t, "DELETE", "/api/v1/stations/"+stationID, nil, adminToken)
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusNoContent {
+		t.Fatalf("expected 204 on delete station, got %d", resp.StatusCode)
+	}
+
+	// Confirm station is gone
+	resp = doRequest(t, "GET", "/api/v1/stations/"+stationID, nil, adminToken)
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("expected 404 on deleted station, got %d", resp.StatusCode)
+	}
 }

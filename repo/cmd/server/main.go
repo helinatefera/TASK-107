@@ -13,11 +13,15 @@ import (
 	echomw "github.com/labstack/echo/v4/middleware"
 	"github.com/rs/zerolog/log"
 
+	"github.com/jmoiron/sqlx"
+
 	"github.com/chargeops/api/internal/apperror"
 	"github.com/chargeops/api/internal/config"
 	"github.com/chargeops/api/internal/db"
+	"github.com/chargeops/api/internal/dto"
 	"github.com/chargeops/api/internal/handler"
 	mw "github.com/chargeops/api/internal/middleware"
+	"github.com/chargeops/api/internal/service"
 	"github.com/chargeops/api/internal/worker"
 )
 
@@ -50,6 +54,31 @@ func joinStrings(ss []string, sep string) string {
 	return result
 }
 
+// seedAdmin creates an administrator user from env vars if configured and no
+// admin exists yet. This removes the need for manual DB commands during setup.
+func seedAdmin(cfg *config.Config, database *sqlx.DB) {
+	if cfg.SeedAdminEmail == "" || cfg.SeedAdminPass == "" {
+		return
+	}
+	ctx := context.Background()
+	// Check if this email already exists (idempotent)
+	user, err := service.Register(ctx, database, &dto.RegisterRequest{
+		Email:       cfg.SeedAdminEmail,
+		Password:    cfg.SeedAdminPass,
+		DisplayName: "Admin",
+	}, cfg)
+	if err != nil {
+		// Already exists or invalid — skip silently
+		log.Info().Str("email", cfg.SeedAdminEmail).Msg("seed admin: user already exists or registration skipped")
+		return
+	}
+	if err := service.UpdateUserRole(ctx, database, user.ID, "administrator"); err != nil {
+		log.Error().Err(err).Msg("seed admin: failed to promote user")
+		return
+	}
+	log.Info().Str("email", cfg.SeedAdminEmail).Msg("seed admin: administrator user created")
+}
+
 func main() {
 	cfg := config.Load()
 
@@ -63,6 +92,8 @@ func main() {
 		log.Fatal().Err(err).Msg("failed to run migrations")
 	}
 	log.Info().Msg("migrations applied successfully")
+
+	seedAdmin(cfg, database)
 
 	e := echo.New()
 	e.HideBanner = true

@@ -5,6 +5,12 @@ A production-ready Go Echo backend API for managing EV charging pricing, operati
 ## Quick Start
 
 ```bash
+docker-compose up
+```
+
+Or with Docker Compose V2:
+
+```bash
 docker compose up
 ```
 
@@ -56,6 +62,74 @@ curl -s -X POST http://localhost:8080/api/v1/auth/register \
 # Expected: {"code":400,"msg":"validation failed: ..."}
 ```
 
+## Demo Credentials
+
+On startup, the app automatically seeds an administrator user from environment variables (`SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD`), which are preconfigured in `docker-compose.yml`. No manual database commands are needed.
+
+### Step 1: Login as admin (auto-seeded on startup)
+
+```bash
+curl -s -X POST http://localhost:8080/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@demo.com","password":"AdminPass123!","device_id":"demo-device"}'
+# Save the returned token as ADMIN_TOKEN
+```
+
+### Step 2: Create an org and remaining role users
+
+```bash
+# Create org (needed for merchant)
+curl -s -X POST http://localhost:8080/api/v1/orgs \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "X-Device-Id: demo-device" \
+  -H "Content-Type: application/json" \
+  -d '{"org_code":"DEMO","name":"Demo Org","timezone":"UTC"}'
+# Save the returned "id" as ORG_ID
+
+# Register + promote merchant
+curl -s -X POST http://localhost:8080/api/v1/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"email":"merchant@demo.com","password":"MerchPass123!","display_name":"Demo Merchant"}'
+# Save the returned "id" as MERCHANT_USER_ID
+
+curl -s -X PUT http://localhost:8080/api/v1/users/$MERCHANT_USER_ID/role \
+  -H "Authorization: Bearer $ADMIN_TOKEN" -H "X-Device-Id: demo-device" \
+  -H "Content-Type: application/json" -d '{"role":"merchant"}'
+curl -s -X PUT http://localhost:8080/api/v1/users/$MERCHANT_USER_ID/org \
+  -H "Authorization: Bearer $ADMIN_TOKEN" -H "X-Device-Id: demo-device" \
+  -H "Content-Type: application/json" -d "{\"org_id\":\"$ORG_ID\"}"
+
+# Register regular user (default role: user)
+curl -s -X POST http://localhost:8080/api/v1/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"email":"user@demo.com","password":"UserPass1234!","display_name":"Demo User"}'
+
+# Register + demote guest
+curl -s -X POST http://localhost:8080/api/v1/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"email":"guest@demo.com","password":"GuestPass123!","display_name":"Demo Guest"}'
+# Save the returned "id" as GUEST_USER_ID
+curl -s -X PUT http://localhost:8080/api/v1/users/$GUEST_USER_ID/role \
+  -H "Authorization: Bearer $ADMIN_TOKEN" -H "X-Device-Id: demo-device" \
+  -H "Content-Type: application/json" -d '{"role":"guest"}'
+```
+
+### Demo credentials summary
+
+| Role          | Email              | Password         | Notes |
+|---------------|--------------------|------------------|-------|
+| Administrator | admin@demo.com     | AdminPass123!    | Auto-seeded on startup; full access |
+| Merchant      | merchant@demo.com  | MerchPass123!    | Org-scoped access; assigned to Demo Org |
+| User          | user@demo.com      | UserPass1234!    | Read access to items, content, own orders |
+| Guest         | guest@demo.com     | GuestPass123!    | Read-only access to public content |
+
+Login any user:
+```bash
+curl -s -X POST http://localhost:8080/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"<email>","password":"<password>","device_id":"demo-device"}'
+```
+
 ## Running Tests
 
 All tests run inside Docker containers with zero host dependencies:
@@ -76,9 +150,11 @@ This script:
 
 ### Test Structure
 
-- **`unit_tests/`** - Unit tests for core logic (password validation, field masking, error handling, pricing calculations, config loading). 30 test cases.
-- **`API_tests/`** - Functional API tests (health check, auth flows, security validation, permission enforcement, input validation). ~27 test cases.
+- **`unit_tests/`** - Unit tests for core logic (password validation, field masking, error handling, pricing calculations, notification worker, config loading). 58 test cases covering 7 modules.
+- **`API_tests/`** - Full-surface API integration tests hitting every endpoint via real HTTP against the live server. 130 test cases across 31 test files covering auth, users, orgs, warehouses, stations, items/categories/units, suppliers/carriers, pricing, orders, content modules, notifications, admin, tenant isolation, and cross-org access.
 - **`run_tests.sh`** - Orchestrates containerized test execution.
+
+Endpoint coverage: 101/101 API endpoints have direct no-mock HTTP test coverage.
 
 ## API Reference
 

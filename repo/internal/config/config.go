@@ -19,6 +19,8 @@ type Config struct {
 	MaxOpenConns    int
 	MaxIdleConns    int
 	MigrationsDir   string
+	SeedAdminEmail  string
+	SeedAdminPass   string
 }
 
 func Load() *Config {
@@ -35,6 +37,8 @@ func Load() *Config {
 		MaxOpenConns:    envIntOrDefault("DB_MAX_OPEN_CONNS", 25),
 		MaxIdleConns:    envIntOrDefault("DB_MAX_IDLE_CONNS", 10),
 		MigrationsDir:   envOrDefault("MIGRATIONS_DIR", "migrations"),
+		SeedAdminEmail:  os.Getenv("SEED_ADMIN_EMAIL"),
+		SeedAdminPass:   os.Getenv("SEED_ADMIN_PASSWORD"),
 	}
 }
 
